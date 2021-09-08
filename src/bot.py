@@ -21,7 +21,8 @@ class RLGymExampleBot(BaseAgent):
 
         self.game_state: GameState = None
         self.controls = None
-        self.prev_action = None
+        self.action = None
+        self.update_action = True
         self.ticks = 0
         self.prev_time = 0
         print('RLGymExampleBot Ready - Index:', index)
@@ -32,19 +33,20 @@ class RLGymExampleBot(BaseAgent):
         self.ticks = self.tick_skip  # So we take an action the first tick
         self.prev_time = 0
         self.controls = SimpleControllerState()
-        self.prev_action = np.zeros(8)
+        self.action = np.zeros(8)
+        self.update_action = True
 
     def get_output(self, packet: GameTickPacket) -> SimpleControllerState:
         cur_time = packet.game_info.seconds_elapsed
         delta = cur_time - self.prev_time
         self.prev_time = cur_time
 
-        self.ticks += delta // 0.008  # Smaller than 1/120 on purpose
+        ticks_elapsed = delta // 0.008  # Smaller than 1/120 on purpose
+        self.ticks += ticks_elapsed
+        self.game_state.decode(packet, ticks_elapsed)
 
-        if self.ticks >= self.tick_skip:
-            self.ticks = 0
-
-            self.game_state.decode(packet)
+        if self.update_action:
+            self.update_action = False
 
             # FIXME Hey, botmaker. Verify that this is what you need for your agent
             # By default we treat every match as a 1v1 against a fixed opponent,
@@ -57,17 +59,20 @@ class RLGymExampleBot(BaseAgent):
             closest_op = min(opponents, key=lambda p: np.linalg.norm(self.game_state.ball.position - p.car_data.position))
             # self.renderer.draw_string_3d(closest_op.car_data.position, 2, 2, "CLOSEST", self.renderer.white())
 
+            # Here we are are rebuilding the player list as if the match were a 1v1
             self.game_state.players = [player, opponents[0]]
 
-            obs = self.obs_builder.build_obs(player, self.game_state, self.prev_action)
-            action = self.agent.act(obs)
-            self.update_controls(action)
+            obs = self.obs_builder.build_obs(player, self.game_state, self.action)
+            self.action = self.agent.act(obs)
+
+        if self.ticks >= self.tick_skip:
+            self.ticks = 0
+            self.update_controls(self.action)
+            self.update_action = True
 
         return self.controls
 
     def update_controls(self, action):
-        self.prev_action[:] = action[:]
-
         self.controls.throttle = action[0]
         self.controls.steer = action[1]
         self.controls.pitch = action[2]
