@@ -11,10 +11,9 @@ class Agent:
             "lr_schedule": 0.000001,
             "clip_range": .02,
             "n_envs": 1,
-            "device": "cpu"
         }
-
-        self.actor = PPO.load(str(_path) + '/example_mdl', custom_objects=custom_objects)
+        
+        self.actor = PPO.load(str(_path) + '/example_mdl', device='cpu', custom_objects=custom_objects)
         self.parser = DiscreteAction()
 
 
