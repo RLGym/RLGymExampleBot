@@ -82,3 +82,6 @@ class RLGymExampleBot(BaseAgent):
         self.controls.jump = action[5] > 0
         self.controls.boost = action[6] > 0
         self.controls.handbrake = action[7] > 0
+        
+if __name__ == "__main__":
+    print("You're doing it wrong.")
