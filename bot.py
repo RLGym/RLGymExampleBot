@@ -18,15 +18,16 @@ class RLGymExampleBot(BaseAgent):
         self.agent = Agent()
         # Adjust the tickskip if your agent was trained with a different value
         self.tick_skip = 8
-
         self.game_state: GameState = None
         self.controls = None
         self.action = None
-        self.update_action = True
         self.ticks = 0
         self.prev_time = 0
+        self.observed = False
+        self.acted = False
         self.expected_teammates = 0
         self.expected_opponents = 1
+        self.current_obs = None
         print(f'{self.name} Ready - Index:', index)
 
 
@@ -37,7 +38,8 @@ class RLGymExampleBot(BaseAgent):
         self.prev_time = 0
         self.controls = SimpleControllerState()
         self.action = np.zeros(8)
-        self.update_action = True
+        self.tick_multi = 120
+
 
     def reshape_state(self, gamestate, player, opponents, allies):
         """ TODO - replace me with code that handles different sized teams
@@ -49,13 +51,18 @@ class RLGymExampleBot(BaseAgent):
         cur_time = packet.game_info.seconds_elapsed
         delta = cur_time - self.prev_time
         self.prev_time = cur_time
+        ticks_elapsed = self.ticks * self.tick_multi
+        self.ticks += delta
 
-        ticks_elapsed = delta * 120
-        self.ticks += ticks_elapsed
-        self.game_state.decode(packet, ticks_elapsed)
-
-        if self.update_action:
-            self.update_action = False
+        if not self.observed:
+            self.game_state.decode(packet, ticks_elapsed)
+            if packet.game_info.is_kickoff_pause and not packet.game_info.is_round_active:
+                ''' This would be a good time to reset the obs/action if you're using a stacking obs
+                    otherwise it shouldn't really matter'''
+                #self.obs_builder.reset(self.game_state)
+                #self.action = np.zeros(8)
+                #self.update_controls(self.action)
+                pass
             player = self.game_state.players[self.index]
             opponents = [p for p in self.game_state.players if p.team_num != self.team]
             allies = [p for p in self.game_state.players if p.team_num == self.team and p.car_id != self.index]
@@ -63,15 +70,22 @@ class RLGymExampleBot(BaseAgent):
             if len(opponents) != self.expected_opponents or len(allies) != self.expected_teammates:
                 self.reshape_state(self.game_state, player, opponents, allies)
 
-            obs = self.obs_builder.build_obs(player, self.game_state, self.action)
-            self.action = self.agent.act(obs)
+            self.current_obs = self.obs_builder.build_obs(player, self.game_state, self.action)
+            self.observed = True
 
-        if self.ticks >= self.tick_skip:
+        elif ticks_elapsed >= self.tick_skip-2:
+            if not self.acted:
+                self.action = self.agent.act(self.current_obs)
+                self.update_controls(self.action)
+                self.acted = True
+
+        if ticks_elapsed >= self.tick_skip-1:
             self.ticks = 0
-            self.update_controls(self.action)
-            self.update_action = True
+            self.observed = False
+            self.acted = False
 
         return self.controls
+
 
     def update_controls(self, action):
         self.controls.throttle = action[0]
@@ -85,3 +99,4 @@ class RLGymExampleBot(BaseAgent):
         
 if __name__ == "__main__":
     print("You're doing it wrong.")
+

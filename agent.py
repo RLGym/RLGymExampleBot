@@ -22,3 +22,6 @@ class Agent:
         x = self.parser.parse_actions(action[0], state)
 
         return x[0]
+
+if __name__ == "__main__":
+    print("You're doing it wrong.")
