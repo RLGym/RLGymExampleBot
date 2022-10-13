@@ -3,7 +3,7 @@ RLGym example bot for the RLBot framework, based on the official RLBotPythonExam
 
 ## How to use this 
 
-This bot runs the Actor class in `src/actor.py`, you're expected to replace that with the output of your model
+This bot runs the Actor class in `src/agent.py`, you're expected to replace that with the output of your model
 
 By default we use DefaultObs from RLGym, AdvancedObs is also available in this project. 
 
